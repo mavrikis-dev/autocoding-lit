@@ -25,7 +25,13 @@ Thumbs.db
 # Logs
 *.log
 
+# PDF files (research papers)
 pdfs/*.pdf
+*.pdf
 
-# Output files (optional - remove if you want to track output files)
+# Output files (CSV results)
 output/*.csv
+*.csv
+
+# Debug files
+debug_test.py
