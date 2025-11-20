@@ -2,7 +2,7 @@
 
 An automated tool for extracting structured coding information from research papers using OpenAI's API. This tool processes PDF files containing academic papers and extracts specific information needed for systematic literature reviews in educational technology and learning sciences.
 
-## 🚀 Features
+## Features
 
 - **Automated PDF Processing**: Extract text from multiple PDF files in batch
 - **AI-Powered Analysis**: Uses OpenAI GPT models to analyze research papers
@@ -26,7 +26,7 @@ autocoding-lit/
 └── README.md                       # This file
 ```
 
-## 🎯 Coding Schema
+## Coding Schema
 
 The tool extracts the following information categories:
 
@@ -50,7 +50,7 @@ The tool extracts the following information categories:
 - **4.1 Metrics for evaluation**: Metrics used to evaluate results
 - **4.2 Measurement of agency**: How agency is measured
 
-## 🛠 Setup Instructions
+## Setup Instructions
 
 ### 1. Prerequisites
 
@@ -81,7 +81,7 @@ You can modify settings in `config.py`:
 - `OPENAI_TEMPERATURE`: Response creativity (default: 0.3)
 - `MAX_TEXT_LENGTH`: Maximum PDF text length (default: 50000)
 
-## 📖 Usage
+## Usage
 
 ### 1. Prepare Your PDFs
 
@@ -105,14 +105,14 @@ python literature_review_extractor.py
 - Each run creates a timestamped file (e.g., `literature_coding_results_20241120_143000.csv`)
 - Open the CSV file in Excel, Google Sheets, or any spreadsheet application
 
-## 📊 Output Format
+## Output Format
 
 The generated CSV file contains:
 - **Title**: Extracted paper title or filename
 - **All coding categories**: As defined in the coding schema above
 - **Error handling**: "Not specified" for missing information, "Processing failed" for errors
 
-## 🔧 Advanced Usage
+## Advanced Usage
 
 ### Custom Prompt Templates
 
@@ -132,7 +132,7 @@ To process only specific PDFs, you can modify the script or move unwanted PDFs o
 - Monitor your usage in the OpenAI dashboard
 - Consider using `gpt-3.5-turbo` instead of `gpt-4o` for cost savings (update in `config.py`)
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -157,7 +157,7 @@ To process only specific PDFs, you can modify the script or move unwanted PDFs o
 
 The tool generates detailed logs in `literature_extraction.log` which can help diagnose issues.
 
-## 📝 Example Prompt Questions
+## Example Prompt Questions
 
 The default prompt includes questions like:
 - "Who are the primary stakeholders involved in this study?"
@@ -166,7 +166,7 @@ The default prompt includes questions like:
 - "Do students have any control over the timing of feedback?"
 - "What metric(s) are used to evaluate the results?"
 
-## 🤝 Contributing
+## Contributing
 
 Feel free to modify and extend this tool for your specific research needs. Common customizations include:
 - Adding new coding categories
@@ -174,10 +174,10 @@ Feel free to modify and extend this tool for your specific research needs. Commo
 - Changing output formats
 - Adding data validation rules
 
-## 📜 License
+## License
 
 This project is licensed under the terms specified in the LICENSE file.
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 This tool uses AI to extract information from research papers. Always review and validate the extracted data before using it in your research. The quality of extraction depends on the clarity of the source papers and the effectiveness of the prompt template.
