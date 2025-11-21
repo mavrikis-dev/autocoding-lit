@@ -265,7 +265,7 @@ class LiteratureReviewExtractor:
             return self._create_empty_row(title)
     
     def _parse_openai_response(self, response_text: str, title: str) -> Dict[str, str]:
-        """Parse OpenAI response into structured coding data."""
+        """Parse OpenAI response into structured coding data with source evidence."""
         # Initialize with default values
         coded_data = {col: "Not specified" for col in CSV_COLUMNS}
         coded_data['Title'] = title
@@ -278,111 +278,79 @@ class LiteratureReviewExtractor:
         self.logger.info(f"Processing response of length: {len(response_text)}")
         
         try:
-            # More precise parsing based on numbered questions
+            # Split response into lines for processing
             lines = [line.strip() for line in response_text.split('\n') if line.strip()]
             
-            # Map question numbers/keywords to exact columns
-            question_mapping = {
+            # Base column names (without " - Source" suffix)
+            base_columns = {
                 '1': '1.1 Primary Stakeholders',
-                'primary stakeholders': '1.1 Primary Stakeholders', 
-                'stakeholders': '1.1 Primary Stakeholders',
-                
                 '2': '1.2 Context',
-                'context': '1.2 Context',
-                
                 '3': '1.3 Tech/AI type', 
-                'tech/ai type': '1.3 Tech/AI type',
-                'technology': '1.3 Tech/AI type',
-                
                 '4': '1.4 Tool/Platform',
-                'tool/platform': '1.4 Tool/Platform',
-                'platform': '1.4 Tool/Platform',
-                
                 '5': '1.5 Education level',
-                'education level': '1.5 Education level',
-                
                 '6': '2.1 Feedback term',
-                'feedback term': '2.1 Feedback term',
-                
                 '7': '2.2 Description of context',
-                'description of context': '2.2 Description of context',
-                
                 '8': '2.3 Our evaluation',
-                'our evaluation': '2.3 Our evaluation',
-                'evaluation': '2.3 Our evaluation',
-                
                 '9': '3.1 Agency type',
-                'agency type': '3.1 Agency type',
-                'agency': '3.1 Agency type',
-                
                 '10': '3.2 Feedback timing control',
-                'feedback timing control': '3.2 Feedback timing control',
-                'timing control': '3.2 Feedback timing control',
-                'timing': '3.2 Feedback timing control',
-                
                 '11': '4.1 Metrics for evaluation',
-                'metrics for evaluation': '4.1 Metrics for evaluation',
-                'metrics': '4.1 Metrics for evaluation',
-                
-                '12': '4.2 Measurement of agency',
-                'measurement of agency': '4.2 Measurement of agency',
-                'measurement': '4.2 Measurement of agency'
+                '12': '4.2 Measurement of agency'
             }
             
-            # Process lines looking for numbered answers or keyword matches
-            for i, line in enumerate(lines):
-                line_lower = line.lower()
-                matched_column = None
-                answer = ""
+            i = 0
+            while i < len(lines):
+                line = lines[i]
                 
-                # Check for numbered format (e.g., "1. **Primary Stakeholders**: answer")
-                for num in range(1, 13):
-                    if line_lower.startswith(f"{num}."):
-                        if str(num) in question_mapping:
-                            matched_column = question_mapping[str(num)]
-                            # Extract answer after colon or after the question
-                            if ':' in line:
-                                answer = line.split(':', 1)[1].strip()
-                                # Remove markdown formatting
-                                answer = answer.replace('**', '').replace('*', '').strip()
+                # Look for numbered questions with format "**X. Answer**: content"
+                for num_str, base_column in base_columns.items():
+                    if line.startswith(f"**{num_str}.") and "**:" in line:
+                        # Extract the answer
+                        answer_part = line.split("**:", 1)
+                        if len(answer_part) > 1:
+                            answer = answer_part[1].strip()
+                            coded_data[base_column] = answer
+                            self.logger.info(f"Extracted {base_column}: {answer[:50]}...")
+                            
+                            # Look for the corresponding source in next few lines
+                            source_column = base_column + " - Source"
+                            j = i + 1
+                            while j < len(lines) and j < i + 5:  # Look ahead up to 5 lines
+                                next_line = lines[j]
+                                if next_line.startswith("**Source**:"):
+                                    source = next_line.replace("**Source**:", "").strip()
+                                    coded_data[source_column] = source
+                                    self.logger.info(f"Extracted {source_column}: {source[:50]}...")
+                                    break
+                                elif any(next_line.startswith(f"**{n}.") for n in base_columns.keys()):
+                                    # Hit next question without finding source
+                                    break
+                                j += 1
+                        break
+                
+                # Alternative format: look for lines that start with question numbers
+                if not any(line.startswith(f"**{num}.") for num in base_columns.keys()):
+                    for num_str, base_column in base_columns.items():
+                        if line.lower().startswith(f"{num_str}."):
+                            # Extract answer after colon
+                            if ":" in line:
+                                answer = line.split(":", 1)[1].strip()
+                                # Clean up markdown formatting
+                                answer = answer.replace("**", "").replace("*", "").strip()
+                                coded_data[base_column] = answer
+                                self.logger.info(f"Extracted {base_column}: {answer[:50]}...")
                             break
                 
-                # If no numbered match, check for keyword matches at start of line
-                if not matched_column:
-                    for keyword, column in question_mapping.items():
-                        if keyword != str(keyword) and line_lower.startswith(keyword):
-                            matched_column = column
-                            if ':' in line:
-                                answer = line.split(':', 1)[1].strip()
-                                answer = answer.replace('**', '').replace('*', '').strip()
-                            break
-                
-                # If we found a match, extract and clean the answer
-                if matched_column and answer:
-                    coded_data[matched_column] = answer
-                    self.logger.info(f"Extracted {matched_column}: {answer[:50]}...")
-                
-                # Also check if this line contains an answer without explicit question marker
-                elif ':' in line and len(line.split(':')) == 2:
-                    question_part, answer_part = line.split(':', 1)
-                    question_lower = question_part.lower().strip()
-                    
-                    # Try to match question part to our mapping
-                    for keyword, column in question_mapping.items():
-                        if keyword in question_lower:
-                            answer_clean = answer_part.replace('**', '').replace('*', '').strip()
-                            if answer_clean and coded_data[column] == "Not specified":
-                                coded_data[column] = answer_clean
-                                self.logger.info(f"Extracted {column}: {answer_clean[:50]}...")
-                            break
+                i += 1
             
             # Log extraction summary
-            extracted_count = sum(1 for v in coded_data.values() if v != "Not specified" and v != title)
-            self.logger.info(f"Successfully extracted {extracted_count} out of {len(CSV_COLUMNS)-1} fields")
+            total_fields = len(CSV_COLUMNS) - 1  # Exclude Title
+            extracted_count = sum(1 for col, val in coded_data.items() 
+                                if col != "Title" and val != "Not specified")
+            self.logger.info(f"Successfully extracted {extracted_count} out of {total_fields} fields")
             
         except Exception as e:
             self.logger.warning(f"Error parsing response: {e}")
-            self.logger.warning(f"Response preview: {response_text[:200]}...")
+            self.logger.warning(f"Response preview: {response_text[:300]}...")
         
         return coded_data
     
