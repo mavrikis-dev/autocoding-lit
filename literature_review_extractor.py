@@ -81,14 +81,29 @@ class LiteratureReviewExtractor:
             raise
     
     def extract_text_from_pdf(self, pdf_path: str) -> str:
-        """Extract text from PDF file using pdfplumber."""
+        """Extract text from PDF file using pdfplumber with improved encoding handling."""
         try:
             text = ""
+            # Try to open PDF with explicit encoding handling
             with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
+                for page_num, page in enumerate(pdf.pages):
+                    try:
+                        page_text = page.extract_text()
+                        if page_text:
+                            # Handle encoding issues by normalizing unicode characters
+                            page_text = page_text.encode('utf-8', errors='ignore').decode('utf-8')
+                            # Replace problematic characters
+                            page_text = page_text.replace('\ufeff', '')  # Remove BOM
+                            page_text = page_text.replace('\u00a0', ' ')  # Replace non-breaking space
+                            page_text = page_text.replace('\u2019', "'")  # Replace smart apostrophe
+                            page_text = page_text.replace('\u201c', '"')  # Replace smart quote
+                            page_text = page_text.replace('\u201d', '"')  # Replace smart quote
+                            page_text = page_text.replace('\u2013', '-')  # Replace en dash
+                            page_text = page_text.replace('\u2014', '-')  # Replace em dash
+                            text += page_text + "\n"
+                    except Exception as page_error:
+                        self.logger.warning(f"Error extracting page {page_num + 1} from {pdf_path}: {page_error}")
+                        continue
             
             # Log the full extraction without truncation
             self.logger.info(f"Extracted {len(text)} characters from {pdf_path}")
@@ -104,49 +119,34 @@ class LiteratureReviewExtractor:
             return ""
     
     def get_paper_title(self, text: str, filename: str) -> str:
-        """Extract paper title from text or use filename as fallback."""
-        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        """Use filename as paper title with proper formatting."""
+        # Use filename without extension as title
+        title = Path(filename).stem
         
-        # Look for title in first few lines, but skip journal headers and common patterns
-        for i, line in enumerate(lines[:15]):  # Check more lines
-            # Skip common patterns that are NOT titles
-            skip_patterns = [
-                'abstract', 'introduction', 'page', 'doi:', 'http', 'www.',
-                'physical review', 'journal', 'vol', 'volume', 'issue',
-                'published', 'received', 'accepted', 'arxiv:', 'preprint',
-                'copyright', '©', 'license', 'rights reserved',
-                'department', 'university', 'college', 'school',
-                'email', '@', '.edu', '.com', '.org'
-            ]
-            
-            # Check if line looks like a title
-            if (10 < len(line) < 300 and  # Reasonable title length
-                not any(pattern in line.lower() for pattern in skip_patterns) and
-                not line.isupper() and  # Skip all-caps headers
-                not line.replace(' ', '').replace(',', '').replace('(', '').replace(')', '').isdigit() and  # Skip page numbers
-                not line.startswith('Fig') and  # Skip figure captions
-                not line.startswith('Table') and  # Skip table captions
-                line[0].isupper()):  # Title should start with capital letter
-                
-                # If this looks like a title, check if the next line continues it
-                potential_title = line
-                
-                # Check if next lines continue the title (common with long titles)
-                for j in range(i + 1, min(i + 4, len(lines))):
-                    next_line = lines[j]
-                    # If next line looks like a continuation (starts lowercase or is short)
-                    if (len(next_line) < 100 and 
-                        not any(pattern in next_line.lower() for pattern in skip_patterns) and
-                        not next_line[0].isupper() and next_line[0].isalpha() or
-                        (len(next_line.split()) < 8 and not any(word in next_line.lower() for word in ['author', 'university', 'department']))):
-                        potential_title += " " + next_line
-                    else:
-                        break
-                
-                return potential_title.strip()
+        # Clean up the filename to make it more readable
+        # Replace common separators with spaces
+        title = title.replace('_', ' ').replace('-', ' ')
         
-        # Fallback to filename without extension
-        return Path(filename).stem
+        # Handle multiple spaces
+        title = ' '.join(title.split())
+        
+        # Ensure proper capitalization (title case)
+        # Keep certain words lowercase unless they start the title
+        lowercase_words = {'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in', 'of', 'on', 'or', 'the', 'to', 'up', 'via', 'with'}
+        words = title.split()
+        
+        # Capitalize first word and words not in lowercase_words list
+        formatted_words = []
+        for i, word in enumerate(words):
+            if i == 0 or word.lower() not in lowercase_words:
+                formatted_words.append(word.capitalize())
+            else:
+                formatted_words.append(word.lower())
+        
+        formatted_title = ' '.join(formatted_words)
+        
+        self.logger.info(f"Using filename as title: {formatted_title}")
+        return formatted_title
     
     def _smart_text_processing(self, text: str) -> str:
         """Process text intelligently to fit within token limits while preserving key information."""
@@ -414,9 +414,18 @@ class LiteratureReviewExtractor:
         output_path = output_dir / filename
         
         try:
-            # Save to CSV
+            # Save to CSV with better encoding handling
             df = pd.DataFrame(results, columns=CSV_COLUMNS)
-            df.to_csv(output_path, index=False, encoding='utf-8')
+            
+            # Ensure all text data is properly encoded
+            for col in df.columns:
+                if df[col].dtype == 'object':  # Text columns
+                    df[col] = df[col].astype(str).apply(
+                        lambda x: x.encode('utf-8', errors='ignore').decode('utf-8') if isinstance(x, str) else x
+                    )
+            
+            # Save with UTF-8 encoding and BOM for Excel compatibility
+            df.to_csv(output_path, index=False, encoding='utf-8-sig')
             
             self.logger.info(f"Results saved to {output_path}")
             self.logger.info(f"Processed {len(results)} papers")
