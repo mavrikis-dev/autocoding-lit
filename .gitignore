@@ -29,9 +29,5 @@ Thumbs.db
 pdfs/*.pdf
 *.pdf
 
-# Output files (CSV results)
-output/*.csv
-*.csv
-
 # Debug files
 debug_test.py
