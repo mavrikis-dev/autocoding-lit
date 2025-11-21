@@ -1,4 +1,8 @@
-Analyze this research paper and extract the following information:
+Analyze this research paper and extract the following information. For each answer, provide BOTH the answer AND the source evidence (quote from the paper with section/page reference).
+
+Format your response as follows for each question:
+**Question Number. Answer**: [Your answer]
+**Source**: [Quote from paper with section/page reference]
 
 1. Primary Stakeholders: Who are the main participants/stakeholders? e.g., students, teachers.
 2. Context: What is the context or setting? e.g., classroom, assignment.
@@ -13,4 +17,8 @@ Analyze this research paper and extract the following information:
 11. Metrics for evaluation: What metrics are used to evaluate results of feedback effect?
 12. Measurement of agency: How is agency measured, if any?
 
-Please provide clear, concise answers. If information is not available, write "Not specified".
+IMPORTANT: 
+- If information is not available, write "Not specified" for both answer AND source
+- Always provide direct quotes from the paper as evidence
+- Include section names or page numbers where the information was found
+- Be precise with your quotes - use quotation marks around exact text from the paper
